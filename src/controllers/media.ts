@@ -15,7 +15,7 @@ export const downloadMedia = async (req: Request, res: Response) => {
 
     // Fetch the file from Supabase Storage
     const { data, error } = await supabase.storage
-      .from("your-bucket-name")
+      .from("pinpoint")
       .download(key); // Replace 'your-bucket-name' with the name of your bucket
 
     if (error) {
