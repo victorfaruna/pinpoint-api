@@ -1,0 +1,5 @@
+# .gitignore
+.env
+config/secrets.json
+*.key
+*.env
