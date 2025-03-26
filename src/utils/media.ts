@@ -1,15 +1,22 @@
-import { createClient } from "@supabase/supabase-js";
 import { v4 as uuidv4 } from "uuid";
-import supabase from "../config/supabase";
+import dotenv from "dotenv";
+dotenv.config();
 
 // Upload file to Supabase Storage
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.SUPABASE_URL || "";
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || "";
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
 export const uploadMediaToSupabase = async (
   fileBuffer: Buffer,
   fileName: string,
   mediaType: string
 ): Promise<{ url: string; type: string }> => {
   const filePath = `${uuidv4()}_${fileName}`;
-  const bucketName = "pinpoint"; // Replace with your bucket name
+
+  const bucketName = process.env.SUPABASE_STORAGE_BUCKET || "pinpoint";
 
   try {
     const { data, error } = await supabase.storage
@@ -27,7 +34,7 @@ export const uploadMediaToSupabase = async (
       .from(bucketName)
       .getPublicUrl(filePath);
 
-    if (!data) {
+    if (!publicUrlData) {
       throw new Error(`Error generating file URL`);
     }
 

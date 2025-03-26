@@ -7,6 +7,9 @@ import Service from "../models/service";
 import Product from "../models/product";
 import mongoose, { ObjectId } from "mongoose";
 import User from "../models/user";
+import { db } from "../db";
+import { locations } from "../db/schema";
+import { eq } from "drizzle-orm";
 
 // Create a new Location
 export const createLocation = async (req: CustomRequest, res: Response) => {
@@ -116,8 +119,16 @@ export const getUserAllLocations = async (
 ) => {
   const partnerId = req.user!._id;
   try {
-    const locations = await Location.find({ partnerId });
-    res.status(200).json(locations);
+    const _locations = await db
+      .select()
+      .from(locations)
+      .where(eq(locations.partnerId, partnerId as any));
+
+    // if (findError) {
+    //   res.status(500).json({ message: "Internal server error" });
+    //   return;
+    // }
+    res.status(200).json(_locations);
     return;
   } catch (error) {
     res.status(500).json({ message: "Internal server error", error });

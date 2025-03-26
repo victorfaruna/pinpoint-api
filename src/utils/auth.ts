@@ -1,5 +1,9 @@
 import nodemailer from "nodemailer";
 
+import dotenv from "dotenv";
+
+dotenv.config();
+
 // Generate a 6-digit verification code
 export const generateVerificationCode = () => {
   return Math.floor(100000 + Math.random() * 900000).toString(); // Generates a 6-digit number

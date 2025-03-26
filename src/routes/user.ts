@@ -6,7 +6,6 @@ import {
 } from "../controllers/user";
 import { auth } from "../middleware/auth";
 import multer from "multer";
-import path from "path";
 
 const router = express.Router();
 

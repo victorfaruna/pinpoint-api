@@ -4,6 +4,9 @@ import { ObjectId } from "mongoose";
 import Report, { ReportDocument, ReportType } from "../models/report";
 import { CustomRequest } from "../middleware/auth";
 import Post from "../models/post";
+import { db } from "../db";
+import { posts } from "../db/schema/posts";
+// import supabase from "../config/supabase";
 
 export const createPost = async (req: CustomRequest, res: Response) => {
   const { content, location } = req.body;
@@ -22,14 +25,27 @@ export const createPost = async (req: CustomRequest, res: Response) => {
 
   try {
     const mediaUploadResults = await Promise.all(mediaUploadPromises);
-    const newPost = new Post({
+    // const newPost = new Post({
+    //   userId,
+    //   location,
+    //   content,
+    //   media: mediaUploadResults,
+    // });
+
+    const insertData = await db.insert(posts).values({
       userId,
       location,
       content,
       media: mediaUploadResults,
     });
 
-    await newPost.save();
+    if (insertError) {
+      console.log(insertError);
+      res.status(500).json({ message: "Internal Server Error" });
+      return;
+    }
+
+    // await newPost.save();
     res
       .status(201)
       .json({ message: "Post created successfully", post: newPost });
@@ -41,10 +57,22 @@ export const createPost = async (req: CustomRequest, res: Response) => {
 
 export const getAllPost = async (req: CustomRequest, res: Response) => {
   try {
-    const posts = await Post.find()
-      .populate("location", "locationName address images")
-      .populate("userId", "locationName address images")
-      .sort({ createdAt: -1 });
+    // const posts = await Post.find()
+    //   .populate("location", "locationName address images")
+    //   .populate("userId", "locationName address images")
+    //   .sort({ createdAt: -1 });
+
+    const { data: posts, error } = await supabase
+      .from("posts")
+      .select(
+        `
+    *,
+    location:locationId(locationName, address, images),
+    userId(locationName, address, images)
+  `
+      )
+      .order("createdAt", { ascending: false });
+
     res.status(200).json(posts);
     return;
   } catch (error) {

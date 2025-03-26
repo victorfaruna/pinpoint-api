@@ -3,20 +3,25 @@ import User from "../models/user";
 import { CustomRequest } from "../middleware/auth";
 import { uploadMediaToSupabase } from "../utils/media";
 import { parseJSONField } from "../utils/common";
+import { db } from "../db";
+import { users } from "../db/schema";
+import { eq } from "drizzle-orm";
 
 export const getUserData = async (req: CustomRequest, res: Response) => {
   try {
     const userId = req.user!._id;
-    const user = await User.findById(userId).select(
-      "-password -verificationCode -verificationCodeExpires"
-    );
 
-    if (!user) {
+    const user = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId as any));
+
+    if (!user || user.length === 0) {
       res.status(404).json({ message: "User not found" });
       return;
     }
 
-    res.status(200).json({ user });
+    res.status(200).json({ user: user[0] });
   } catch (error) {
     res.status(500).json({ message: "Internal Server Error", error });
   }

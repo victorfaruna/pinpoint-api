@@ -4,6 +4,9 @@ import User, { UserRole } from "../models/user";
 import { body, validationResult } from "express-validator";
 import { Request, Response } from "express";
 import { sendEmail } from "../utils/auth";
+import { users } from "../db/schema";
+import { db } from "../db";
+import { eq } from "drizzle-orm";
 
 // Register a new user
 export const register = async (req: Request, res: Response) => {
@@ -40,23 +43,28 @@ export const register = async (req: Request, res: Response) => {
 
     const email = userEmail.trim().toLowerCase();
 
-    // Check if email is already in use
-    const existingUserByEmail = await User.findOne({ email });
-    if (existingUserByEmail) {
+    const existingUserByEmail = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email));
+    if (existingUserByEmail && existingUserByEmail.length > 0) {
       res.status(400).json({ message: "Email is already in use" });
       return;
     }
 
     // Check if username is already in use
-    const existingUserByUsername = await User.findOne({ username });
-    if (existingUserByUsername) {
+    const existingUserByUsername = await db
+      .select()
+      .from(users)
+      .where(eq(users.username, username));
+    if (existingUserByUsername && existingUserByUsername.length > 0) {
       res.status(400).json({ message: "Username is already in use" });
       return;
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const user = new User({
+    const user = await db.insert(users).values({
       firstName,
       lastName,
       username,
@@ -65,12 +73,15 @@ export const register = async (req: Request, res: Response) => {
       role,
       city,
       state,
-      ...otherFields,
     });
 
     // await sendVerificationEmail(email, verificationCode);
+    if (!user) {
+      console.log("Error registering user");
+      res.status(500).json({ message: "Internal Server Error" });
+      return;
+    }
 
-    await user.save();
     res.status(201).json({ message: "User registered successfully" });
   } catch (error) {
     console.log(error);
@@ -135,27 +146,31 @@ export const login = async (req: Request, res: Response) => {
   const { email, password, role } = req.body;
 
   try {
-    const user = await User.findOne({ email, delected: false });
+    const user = await db.select().from(users).where(eq(users.email, email));
 
-    if (!user) {
+    if (!user || user.length === 0) {
       res.status(404).json({ message: "Invalid credentials" });
       return;
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    console.log(user);
+
+    const isMatch = await bcrypt.compare(password, user[0].password);
     if (!isMatch) {
       res.status(400).json({ message: "Invalid credentials" });
 
       return;
     }
-    console.log(role, user.role);
-    if (role !== user.role) {
-      res.status(400).json({ message: `Pls login at the ${user.role} side` });
+    console.log(role, user[0].role);
+    if (role !== user[0].role) {
+      res
+        .status(400)
+        .json({ message: `Pls login at the ${user[0].role} side` });
       return;
     }
 
     const token = jwt.sign(
-      { _id: user._id, role: user.role },
+      { _id: user[0].id, role: user[0].role },
       process.env.JWT_SECRET!,
       { expiresIn: "30d" }
     );
@@ -174,7 +189,9 @@ export const sendVerificationCode = async (req: Request, res: Response) => {
   const { email } = req.body;
 
   try {
-    const user = await User.findOne({ email, delected: false });
+    // const user = await User.findOne({ email, delected: false });
+
+    const user = await db.select().from(users).where(eq(users.email, email));
     if (!user) {
       res.status(404).json({ message: "User not found" });
       return;
@@ -189,19 +206,25 @@ export const sendVerificationCode = async (req: Request, res: Response) => {
     const verificationCodeExpire = Date.now() + 15 * 60 * 1000;
 
     // Update user with verification code and expiration
-    user.verificationCode = verificationCode;
-    user.verificationCodeExpires = new Date(verificationCodeExpire);
-    await user.save();
+
+    // user.verificationCode = verificationCode;
+    // user.verificationCodeExpires = new Date(verificationCodeExpire);
+
+    user[0].verificationCode = verificationCode;
+    user[0].verificationCodeExpires = new Date(verificationCodeExpire);
+
+    await db.update(users).set(user[0]).where(eq(users.id, user[0].id));
 
     // Send the verification code via email
     await sendEmail({
-      to: user.email,
+      to: user[0].email,
       subject: "Your Verification Code",
       text: `Your verification code is ${verificationCode}. This code will expire in 15 minutes.`,
     });
 
     res.status(200).json({ message: "Verification code sent to your email" });
   } catch (error) {
+    console.log(error);
     res.status(500).json({ message: "Server Error", error });
   }
 };
